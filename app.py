@@ -6,7 +6,7 @@ import copy
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, PatternFill, Border, Side, Font
 
-# --- 전역 설정 ---
+# --- 시스템 설정 ---
 calendar.setfirstweekday(calendar.SUNDAY)
 MEMBER_LIST = ["양기윤", "전소영", "임채성", "홍부휘", "이지용", 
                "조현진", "정용채", "강창신", "김덕기", "우성대", "홍그린"]
@@ -15,7 +15,7 @@ def get_2026_holidays(month):
     holidays = {1: [1], 2: [16, 17, 18], 3: [1, 2], 5: [5, 24, 25], 6: [6], 8: [15, 17], 9: [24, 25, 26], 10: [3, 5, 9], 12: [25]}
     return holidays.get(month, [])
 
-# --- 세션 상태 초기화 ---
+# --- 세션 상태 초기화 (AttributeError 방지) ---
 REQUIRED_KEYS = {
     'quotas': {}, 'selection_order': [], 'current_picker_idx': 0, 'slots': [],
     'absentees': set(), 'absentee_prefs': {name: "" for name in MEMBER_LIST},
@@ -26,7 +26,7 @@ for key, default in REQUIRED_KEYS.items():
     if key not in st.session_state:
         st.session_state[key] = default
 
-# --- 유틸리티 함수 ---
+# --- 로직 함수 ---
 def save_history():
     snapshot = {'slots': copy.deepcopy(st.session_state.slots), 'quotas': copy.deepcopy(st.session_state.quotas),
                 'current_picker_idx': st.session_state.current_picker_idx, 'pass_log': st.session_state.pass_log}
@@ -34,6 +34,7 @@ def save_history():
     if len(st.session_state.history) > 20: st.session_state.history.pop(0)
 
 def move_to_next_picker():
+    """횟수가 있는 다음 사람으로 순서 이동"""
     if not st.session_state.selection_order: return
     for _ in range(len(st.session_state.selection_order)):
         curr_name = st.session_state.selection_order[st.session_state.current_picker_idx]
@@ -54,55 +55,74 @@ def pass_turn(name):
     move_to_next_picker()
     st.rerun()
 
-# --- 화면 구성 및 디자인 (CSS) ---
+# --- 화면 레이아웃 및 강력한 CSS 디자인 ---
 st.set_page_config(page_title="CARE팀 당직 시스템", layout="wide")
 
 st.markdown("""
     <style>
-    /* 전체 배경색 조정 */
-    .main { background-color: #f8f9fa; }
+    /* 배경 및 기본 폰트 색상 */
+    .main { background-color: #ffffff; }
+    h1, h2, h3 { color: #1a1a1a !important; font-weight: 800 !important; }
     
-    /* 버튼 텍스트 강조 */
+    /* 날짜 숫자 강조 */
+    .date-num {
+        font-size: 1.5rem !important;
+        font-weight: 900 !important;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    /* 버튼 스타일 (고대비) */
     .stButton>button {
+        border: 2px solid #212529 !important;
+        font-size: 1.1rem !important;
         font-weight: 700 !important;
-        border-radius: 8px !important;
-        transition: all 0.2s;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        color: #212529 !important;
+        height: 3rem !important;
     }
-    
-    /* 배정된 버튼 스타일 */
+
+    /* 배정된 버튼 (검정 배경 + 흰색 글씨) */
     div[data-testid="stButton"] button[disabled] {
-        background-color: #495057 !important;
+        background-color: #212529 !important;
         color: #ffffff !important;
-        opacity: 1 !important;
         border: none !important;
+        opacity: 1 !important;
+    }
+
+    /* 현재 차례 강조 박스 (매우 밝은 노랑 + 굵은 테두리) */
+    .turn-highlight {
+        background-color: #fff3bf;
+        border: 4px solid #f08c00;
+        padding: 20px;
+        border-radius: 15px;
+        color: #000000;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
     
-    /* 현재 차례 강조 박스 */
-    .highlight-box {
-        background-color: #fff9db;
-        border: 2px solid #fab005;
-        padding: 15px;
-        border-radius: 12px;
-        margin-bottom: 10px;
-        color: #212529;
-    }
-    
-    /* 요일 헤더 공통 */
-    .day-header {
+    /* 대기열 텍스트 강화 */
+    .waiting-list {
         font-size: 1.1rem;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+    
+    /* 요일 헤더 */
+    .day-header {
+        font-size: 1.2rem;
+        font-weight: 800;
         padding: 10px;
-        border-radius: 8px;
-        background-color: #ffffff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        margin-bottom: 10px;
+        background-color: #f1f3f5;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        text-align: center;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 사이드바 ---
 with st.sidebar:
-    st.title("🛠️ 시스템 관리")
+    st.title("⚙️ 관리 메뉴")
     sel_month = st.number_input("배정 월", 1, 12, 1)
     if st.button("📅 새 달력 생성", use_container_width=True):
         cal = calendar.monthcalendar(2026, sel_month)
@@ -121,26 +141,26 @@ with st.sidebar:
         st.session_state.update({'slots': new_slots, 'quotas': {}, 'selection_order': [], 'current_picker_idx': 0, 'history': [], 'pass_log': ""})
         st.rerun()
 
-    st.session_state.manual_mode = st.toggle("🛡️ 관리자 수동 모드")
+    st.session_state.manual_mode = st.toggle("🛡️ 수동 관리자 모드")
     if st.session_state.manual_mode:
         st.session_state.admin_selected_member = st.selectbox("강제 배정 대상", MEMBER_LIST)
 
     st.divider()
-    st.header("👤 부재자/희망날짜")
+    st.header("👤 부재자/희망설정")
     for name in sorted(MEMBER_LIST):
         with st.expander(f"⚙️ {name}"):
             is_abs = st.checkbox("부재자", key=f"abs_{name}", value=(name in st.session_state.absentees))
             if is_abs: st.session_state.absentees.add(name)
             else: st.session_state.absentees.discard(name)
-            st.session_state.absentee_prefs[name] = st.text_input("희망 ID(쉼표 구분)", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
+            st.session_state.absentee_prefs[name] = st.text_input("희망 ID (쉼표 구분)", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
 
 # --- 메인 화면 ---
-st.title(f"📅 2026년 {sel_month}월 CARE팀 당직")
+st.title(f"📅 2026년 {sel_month}월 CARE팀 당직 배정")
 
-col_info, col_cal = st.columns([1, 2.3])
+col_info, col_cal = st.columns([1, 2.2])
 
 with col_info:
-    st.subheader("🎲 추첨 제어")
+    st.subheader("🎲 추첨 및 제어")
     c1, c2 = st.columns(2)
     if c1.button("🔢 횟수 추첨", use_container_width=True):
         t = len(st.session_state.slots); base, extra = divmod(t, 11)
@@ -158,45 +178,47 @@ with col_info:
     st.divider()
     ctrl1, ctrl2 = st.columns(2)
     if ctrl1.button("↩️ 되돌리기", use_container_width=True, disabled=not st.session_state.history):
-        if st.session_state.history:
-            last = st.session_state.history.pop()
-            st.session_state.update({'slots': last['slots'], 'quotas': last['quotas'], 'current_picker_idx': last['current_picker_idx'], 'pass_log': last['pass_log']})
-            st.rerun()
-    if ctrl2.button("🚫 이번 차례 패스", use_container_width=True):
+        undo()
+    if ctrl2.button("🚫 패스(배분)", use_container_width=True):
         if st.session_state.selection_order: pass_turn(st.session_state.selection_order[st.session_state.current_picker_idx])
 
     if st.session_state.pass_log:
         st.warning(st.session_state.pass_log)
 
-    st.subheader("📋 실시간 대기열")
+    st.subheader("📋 실시간 대기 순서")
     if st.session_state.selection_order:
         move_to_next_picker()
         for idx, name in enumerate(st.session_state.selection_order):
             q = st.session_state.quotas.get(name, 0)
-            if q <= 0: continue
+            if q <= 0: continue # 횟수 0인 사람 목록에서 제외
+            
             is_turn = (idx == st.session_state.current_picker_idx)
+            # 남은 희망 번호 계산
             pref_ids = [int(x.strip()) for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
             rem_prefs = [p_id for p_id in pref_ids if p_id < len(st.session_state.slots) and st.session_state.slots[p_id]['owner'] is None]
             
+            pref_txt = f"<span style='color:#e67e22; font-weight:bold;'> [🌟희망: {', '.join(map(str, rem_prefs))}]</span>" if rem_prefs else ""
+            
             if is_turn:
-                st.markdown(f"""<div class="highlight-box">
-                    <b style="font-size:1.2rem;">👉 {name} ({q}회 남음)</b><br>
-                    <small>{"👤 부재자" if name in st.session_state.absentees else ""} {f"| 🌟 추천: {', '.join(map(str, rem_prefs))}" if rem_prefs else ""}</small>
+                st.markdown(f"""<div class="turn-highlight">
+                    <b style="font-size:1.3rem;">👉 {name} ({q}회 남음)</b><br>
+                    <b style="font-size:1rem;">{"[부재중]" if name in st.session_state.absentees else ""}{pref_txt}</b>
                 </div>""", unsafe_allow_html=True)
+                # 부재자 자동 처리
                 if name in st.session_state.absentees:
                     if rem_prefs:
                         save_history(); st.session_state.slots[rem_prefs[0]]['owner'] = name
                         st.session_state.quotas[name] -= 1; move_to_next_picker(); st.rerun()
                     else: pass_turn(name)
             else:
-                st.write(f"• **{name}** ({q}회) {f'<small style=\"color:blue;\">| {rem_prefs[0]}번 희망</small>' if rem_prefs else ''}", unsafe_allow_html=True)
+                st.markdown(f"<div class='waiting-list'>• <b>{name}</b> ({q}회){pref_txt}</div>", unsafe_allow_html=True)
 
 with col_cal:
     h_cols = st.columns(7)
     days_kr = ["일", "월", "화", "수", "목", "금", "토"]
     for i, h in enumerate(days_kr):
-        color = "#e03131" if i == 0 else "#1971c2" if i == 6 else "#212529"
-        h_cols[i].markdown(f'<div class="day-header" style="text-align:center; color:{color}; font-weight:bold;">{h}</div>', unsafe_allow_html=True)
+        color = "#ff0000" if i == 0 else "#0000ff" if i == 6 else "#000000"
+        h_cols[i].markdown(f'<div class="day-header" style="color:{color};">{h}</div>', unsafe_allow_html=True)
 
     if st.session_state.slots:
         cal = calendar.monthcalendar(2026, sel_month); h_days = get_2026_holidays(sel_month)
@@ -206,39 +228,44 @@ with col_cal:
                 if day == 0: continue
                 is_h = (i == 0 or i == 6 or day in h_days)
                 with w_cols[i]:
-                    st.markdown(f'<b style="color:{"#e03131" if is_h else "#212529"};">{day}일</b>', unsafe_allow_html=True)
+                    # 날짜 시인성 강화
+                    st.markdown(f'<span class="date-num" style="color:{"#ff0000" if is_h else "#000000"};">{day}일</span>', unsafe_allow_html=True)
                     for s in [sl for sl in st.session_state.slots if sl['day'] == day]:
-                        # 버튼 색상 커스텀 (Day: 노랑, Night: 파랑)
-                        b_color = "#fff3bf" if s['type'] == "Day" else "#d0ebff"
+                        # 버튼 색상 (주간: 노랑바탕, 야간: 파랑바탕)
+                        bg = "#fff9db" if s['type'] == "Day" else "#e7f5ff"
                         label = f"{s['type'][0]}:{s['id']}"
+                        
                         if s['owner']:
+                            # 배정된 칸은 검정 배경에 흰색 이름
                             st.button(f"👤 {s['owner']}", key=f"b{s['id']}", disabled=True, use_container_width=True)
                         else:
+                            # 빈 칸 버튼
                             if st.button(label, key=f"b{s['id']}", use_container_width=True):
                                 save_history()
                                 target = st.session_state.admin_selected_member if st.session_state.manual_mode else st.session_state.selection_order[st.session_state.current_picker_idx]
                                 if st.session_state.quotas.get(target, 0) > 0 or st.session_state.manual_mode:
-                                    s['owner'] = target; st.session_state.quotas[target] -= 1; move_to_next_picker(); st.rerun()
+                                    s['owner'] = target; st.session_state.quotas[target] -= 1
+                                    move_to_next_picker(); st.rerun()
 
 # --- 엑셀 저장 ---
 def make_excel():
     output = io.BytesIO(); wb = Workbook(); ws = wb.active; ws.title = f"{sel_month}월 당직"
     headers = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"]
     for c, h in enumerate(headers, 1):
-        cell = ws.cell(1, c, h); cell.fill = PatternFill("solid", "343a40"); cell.font = Font(color="FFFFFF", bold=True); ws.column_dimensions[cell.column_letter].width = 18
+        cell = ws.cell(1, c, h); cell.fill = PatternFill("solid", "333333"); cell.font = Font(color="FFFFFF", bold=True); ws.column_dimensions[cell.column_letter].width = 20
     day_map = {d: {"Day": "", "Night": ""} for d in range(1, 32)}
     for s in st.session_state.slots:
         if s['owner']: day_map[s['day']][s['type']] = s['owner']
     for r_idx, week in enumerate(calendar.monthcalendar(2026, sel_month), 2):
-        ws.row_dimensions[r_idx].height = 60
+        ws.row_dimensions[r_idx].height = 70
         for c_idx, day in enumerate(week):
             if day == 0: continue
-            cell = ws.cell(r_idx, c_idx + 1, f"[{day}일]\n주: {day_map[day]['Day']}\n야: {day_map[day]['Night']}")
+            cell = ws.cell(r_idx, c_idx + 1, f"[{day}일]\n주(D): {day_map[day]['Day']}\n야(N): {day_map[day]['Night']}")
             cell.alignment = Alignment(wrap_text=True, vertical="top"); cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-            if c_idx == 0 or day in get_2026_holidays(sel_month): cell.fill = PatternFill("solid", "ffc9c9")
-            elif c_idx == 6: cell.fill = PatternFill("solid", "d0ebff")
+            if c_idx == 0 or day in get_2026_holidays(sel_month): cell.fill = PatternFill("solid", "ffd9d9")
+            elif c_idx == 6: cell.fill = PatternFill("solid", "d9eaf7")
     wb.save(output); return output.getvalue()
 
 st.divider()
 if st.session_state.slots:
-    st.download_button("💾 최종 당직표 엑셀로 저장하기", data=make_excel(), file_name=f"CARE팀_{sel_month}월_당직표.xlsx", use_container_width=True, type="primary")
+    st.download_button("💾 최종 당직표 엑셀로 저장하기 (완료 후 클릭)", data=make_excel(), file_name=f"CARE팀_{sel_month}월_당직표.xlsx", use_container_width=True, type="primary")
