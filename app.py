@@ -56,105 +56,98 @@ def pass_turn(name):
     move_to_next_picker()
     st.rerun()
 
-# --- 화면 레이아웃 및 강제 다크 모드 CSS ---
-st.set_page_config(page_title="CARE팀 당직 시스템", layout="wide")
+# --- 화면 레이아웃 및 범용 UI CSS ---
+st.set_page_config(page_title="2026 CARE팀 당직 시스템", layout="wide")
 
 st.markdown("""
     <style>
-    /* 전체 배경을 다크 모드로 강제 설정 */
-    .stApp {
-        background-color: #0e1117;
-        color: #ffffff;
-    }
-    
-    /* 사이드바 다크 설정 */
-    [data-testid="stSidebar"] {
-        background-color: #262730;
-    }
-
-    /* 요일 헤더: 아주 어두운 회색 배경 + 하얀색 글씨 */
+    /* 요일 헤더: 테마에 상관없이 뚜렷한 가독성 */
     .day-header-box {
-        background-color: #1c1e21;
-        color: #ffffff !important;
+        background-color: #f1f3f5;
+        color: #212529 !important;
         text-align: center;
         font-weight: 900;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        font-size: 1.1rem;
-        border: 1px solid #495057;
+        padding: 8px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-size: 1rem;
+        border: 1px solid #dee2e6;
+        box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+    }
+    /* 다크모드일 때 요일 헤더 색상 반전 처리 */
+    @media (prefers-color-scheme: dark) {
+        .day-header-box { background-color: #343a40; color: #f8f9fa !important; border: 1px solid #495057; }
     }
 
-    /* 평일 날짜: 진한 회색 배경 + 하얀색 글씨 */
+    /* 날짜 숫자 태그: 고정된 다크 배경으로 라이트 모드에서도 흰색 글씨 유지 */
     .date-tag-normal {
-        background-color: #495057; 
+        background-color: #212529; 
         color: #ffffff !important;
-        padding: 4px 12px;
-        border-radius: 6px;
+        padding: 2px 10px;
+        border-radius: 4px;
         font-weight: 800;
         display: inline-block;
-        margin-bottom: 8px;
-        border: 1px solid #adb5bd;
+        margin-bottom: 5px;
+        box-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
-
-    /* 공휴일/주말: 진한 빨간 배경 + 하얀색 글씨 */
     .date-tag-holiday {
-        background-color: #c92a2a;
+        background-color: #fa5252;
         color: #ffffff !important;
-        padding: 4px 12px;
-        border-radius: 6px;
+        padding: 2px 10px;
+        border-radius: 4px;
         font-weight: 800;
         display: inline-block;
-        margin-bottom: 8px;
-        border: 1px solid #ffa8a8;
+        margin-bottom: 5px;
+        box-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
 
-    /* 모든 버튼 내 글씨 하얀색 고정 */
+    /* 버튼 글씨: 테마와 상관없이 항상 흰색으로 뚜렷하게 */
     div[data-testid="stButton"] button p {
         color: white !important;
         font-weight: 700;
     }
-
-    /* 배정 완료된 버튼: 아주 어두운 배경 */
+    /* 평일/주말 버튼 기본 배경색 (고대비) */
+    div[data-testid="stButton"] button {
+        background-color: #495057;
+        border: 1px solid #dee2e6;
+    }
+    /* 배정 완료 버튼 */
     div[data-testid="stButton"] button[disabled] {
         background-color: #212529 !important;
-        border: 1px solid #343a40 !important;
-        opacity: 0.8 !important;
+        color: #adb5bd !important;
+        opacity: 1 !important;
     }
 
-    /* 현재 순번 강조 박스 (다크 대비 오렌지) */
+    /* 현재 순번 강조 (테마 중립적인 앰버/블루 조합) */
     .turn-box {
-        background-color: #2b2f36;
-        border-left: 8px solid #fd7e14;
-        padding: 15px;
-        border-radius: 10px;
-        color: #ffffff;
+        background-color: #fff9db;
+        border-left: 8px solid #fab005;
+        padding: 12px;
+        border-radius: 8px;
+        color: #212529 !important;
         margin-bottom: 15px;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
+    @media (prefers-color-scheme: dark) {
+        .turn-box { background-color: #2b2f36; border-left: 8px solid #f08c00; color: #ffffff !important; }
     }
 
-    /* 부재중 뱃지 */
     .absent-badge {
-        color: #ff8787;
+        color: #e03131;
         font-weight: bold;
-        background-color: #c92a2a33;
-        padding: 2px 6px;
+        background-color: #fff5f5;
+        padding: 1px 5px;
         border-radius: 4px;
         font-size: 0.8rem;
-        margin-left: 8px;
-        border: 1px solid #c92a2a;
-    }
-
-    /* 일반 텍스트 하얗게 */
-    span, p, label {
-        color: #ffffff !important;
+        margin-left: 5px;
+        border: 1px solid #ffc9c9;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 사이드바 영역 ---
+# --- 사이드바 ---
 with st.sidebar:
-    st.title("🌑 관리자")
+    st.title("⚙️ 시스템 설정")
     sel_month = st.number_input("배정 월", 1, 12, 1)
     if st.button("📅 새 달력 데이터 초기화", use_container_width=True):
         cal = calendar.monthcalendar(2026, sel_month); h_days = set(get_2026_holidays(sel_month))
@@ -171,25 +164,25 @@ with st.sidebar:
         st.session_state.update({'slots': new_slots, 'quotas': {}, 'selection_order': [], 'current_picker_idx': 0, 'history': [], 'pass_log': ""})
         st.rerun()
 
-    st.session_state.manual_mode = st.toggle("🛡️ 수동 모드")
+    st.session_state.manual_mode = st.toggle("🛡️ 수동 모드 (강제 배정)")
     if st.session_state.manual_mode:
-        st.session_state.admin_selected_member = st.selectbox("강제 배정 대상", MEMBER_LIST)
+        st.session_state.admin_selected_member = st.selectbox("대상자 선택", MEMBER_LIST)
 
     st.divider()
     for name in sorted(MEMBER_LIST):
         with st.expander(f"⚙️ {name} 설정"):
-            is_abs = st.checkbox("부재중 체크", key=f"abs_{name}", value=(name in st.session_state.absentees))
+            is_abs = st.checkbox("부재중", key=f"abs_{name}", value=(name in st.session_state.absentees))
             if is_abs: st.session_state.absentees.add(name)
             else: st.session_state.absentees.discard(name)
             st.session_state.absentee_prefs[name] = st.text_input("희망 ID(쉼표)", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
 
 # --- 메인 화면 ---
-st.title(f"🌑 2026년 {sel_month}월 당직 배정")
+st.title(f"📅 2026년 {sel_month}월 당직 배정")
 
 col_info, col_cal = st.columns([1, 2.3])
 
 with col_info:
-    st.subheader("🎲 추첨 제어")
+    st.subheader("🎲 추첨 및 제어")
     c1, c2 = st.columns(2)
     if c1.button("🔢 횟수 추첨", use_container_width=True):
         t = len(st.session_state.slots); b, e = divmod(t, 11)
@@ -213,7 +206,7 @@ with col_info:
         last = st.session_state.history.pop()
         st.session_state.update({'slots': last['slots'], 'quotas': last['quotas'], 'current_picker_idx': last['current_picker_idx'], 'pass_log': last['pass_log']})
         st.rerun()
-    if ctrl2.button("🚫 패스", use_container_width=True):
+    if ctrl2.button("🚫 패스(배분)", use_container_width=True):
         if st.session_state.selection_order: pass_turn(st.session_state.selection_order[st.session_state.current_picker_idx])
 
     if st.session_state.pass_log:
@@ -244,7 +237,7 @@ with col_info:
                         st.session_state.quotas[name] -= 1; move_to_next_picker(); st.rerun()
                     else: pass_turn(name)
             else:
-                st.markdown(f"<span style='color:white;'>**{rank}위: {name}**{abs_display} ({q}회){pref_display}</span>", unsafe_allow_html=True)
+                st.write(f"**{rank}위: {name}**{abs_display} ({q}회){pref_display}", unsafe_allow_html=True)
 
 with col_cal:
     h_cols = st.columns(7); days_kr = ["일", "월", "화", "수", "목", "금", "토"]
@@ -295,4 +288,4 @@ def make_excel():
 
 st.divider()
 if st.session_state.slots:
-    st.download_button("💾 엑셀 저장 (다크 테마 결과)", data=make_excel(), file_name=f"CARE팀_{sel_month}월.xlsx", use_container_width=True, type="primary")
+    st.download_button("💾 엑셀 저장", data=make_excel(), file_name=f"CARE팀_{sel_month}월.xlsx", use_container_width=True, type="primary")
