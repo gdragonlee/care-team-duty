@@ -36,7 +36,6 @@ def save_history():
     if len(st.session_state.history) > 20: st.session_state.history.pop(0)
 
 def move_to_next_picker():
-    """1회 선택 후 다음 순위자로 교대"""
     if not st.session_state.selection_order: return
     for _ in range(len(st.session_state.selection_order)):
         st.session_state.current_picker_idx = (st.session_state.current_picker_idx + 1) % len(st.session_state.selection_order)
@@ -57,78 +56,107 @@ def pass_turn(name):
     move_to_next_picker()
     st.rerun()
 
-# --- 화면 레이아웃 및 CSS ---
-st.set_page_config(page_title="CARE팀 당직 시스템", layout="wide")
+# --- 화면 레이아웃 및 강제 다크 모드 CSS ---
+st.set_page_config(page_title="CARE팀 다크 당직 시스템", layout="wide")
 
 st.markdown("""
     <style>
-    /* 요일 헤더: 어두운 배경 + 하얀색 글씨 */
+    /* 전체 배경을 다크 모드로 강제 설정 */
+    .stApp {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+    
+    /* 사이드바 다크 설정 */
+    [data-testid="stSidebar"] {
+        background-color: #262730;
+    }
+
+    /* 요일 헤더: 아주 어두운 회색 배경 + 하얀색 글씨 */
     .day-header-box {
-        background-color: #343a40;
+        background-color: #1c1e21;
         color: #ffffff !important;
         text-align: center;
         font-weight: 900;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 10px;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 15px;
         font-size: 1.1rem;
+        border: 1px solid #495057;
     }
-    /* 평일 날짜: 검정 배경 + 하얀색 글씨 */
+
+    /* 평일 날짜: 진한 회색 배경 + 하얀색 글씨 */
     .date-tag-normal {
-        background-color: #212529; 
+        background-color: #495057; 
         color: #ffffff !important;
-        padding: 3px 10px;
-        border-radius: 4px;
+        padding: 4px 12px;
+        border-radius: 6px;
         font-weight: 800;
         display: inline-block;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
+        border: 1px solid #adb5bd;
     }
-    /* 공휴일/주말: 빨간 배경 + 하얀색 글씨 */
+
+    /* 공휴일/주말: 진한 빨간 배경 + 하얀색 글씨 */
     .date-tag-holiday {
-        background-color: #e03131;
+        background-color: #c92a2a;
         color: #ffffff !important;
-        padding: 3px 10px;
-        border-radius: 4px;
+        padding: 4px 12px;
+        border-radius: 6px;
         font-weight: 800;
         display: inline-block;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
+        border: 1px solid #ffa8a8;
     }
-    /* 모든 버튼 내 글씨 하얀색 강제 적용 */
+
+    /* 모든 버튼 내 글씨 하얀색 고정 */
     div[data-testid="stButton"] button p {
         color: white !important;
         font-weight: 700;
     }
-    /* 선택 완료된 어두운 버튼 */
+
+    /* 배정 완료된 버튼: 아주 어두운 배경 */
     div[data-testid="stButton"] button[disabled] {
-        background-color: #495057 !important;
-        opacity: 1 !important;
+        background-color: #212529 !important;
+        border: 1px solid #343a40 !important;
+        opacity: 0.8 !important;
     }
-    /* 순위 박스 스타일 */
+
+    /* 현재 순번 강조 박스 (다크 대비 오렌지) */
     .turn-box {
-        background-color: #fff3bf;
-        border-left: 6px solid #f08c00;
-        padding: 12px;
-        border-radius: 8px;
-        color: #212529;
+        background-color: #2b2f36;
+        border-left: 8px solid #fd7e14;
+        padding: 15px;
+        border-radius: 10px;
+        color: #ffffff;
+        margin-bottom: 15px;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
     }
-    /* 부재중 뱃지 스타일 */
+
+    /* 부재중 뱃지 */
     .absent-badge {
-        color: #e03131;
+        color: #ff8787;
         font-weight: bold;
-        background-color: #ffe3e3;
-        padding: 2px 5px;
+        background-color: #c92a2a33;
+        padding: 2px 6px;
         border-radius: 4px;
-        font-size: 0.85rem;
-        margin-left: 5px;
+        font-size: 0.8rem;
+        margin-left: 8px;
+        border: 1px solid #c92a2a;
+    }
+
+    /* 일반 텍스트 하얗게 */
+    span, p, label {
+        color: #ffffff !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 사이드바 ---
+# --- 사이드바 영역 ---
 with st.sidebar:
-    st.title("⚙️ 설정")
+    st.title("🌑 다크 관리자")
     sel_month = st.number_input("배정 월", 1, 12, 1)
-    if st.button("📅 새 달력 초기화", use_container_width=True):
+    if st.button("📅 새 달력 데이터 초기화", use_container_width=True):
         cal = calendar.monthcalendar(2026, sel_month); h_days = set(get_2026_holidays(sel_month))
         new_slots = []; slot_id = 0
         for week in cal:
@@ -149,14 +177,14 @@ with st.sidebar:
 
     st.divider()
     for name in sorted(MEMBER_LIST):
-        with st.expander(f"{name} 설정"):
+        with st.expander(f"⚙️ {name} 설정"):
             is_abs = st.checkbox("부재중 체크", key=f"abs_{name}", value=(name in st.session_state.absentees))
             if is_abs: st.session_state.absentees.add(name)
             else: st.session_state.absentees.discard(name)
             st.session_state.absentee_prefs[name] = st.text_input("희망 ID(쉼표)", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
 
 # --- 메인 화면 ---
-st.title(f"📅 2026년 {sel_month}월 당직 배정")
+st.title(f"🌑 2026년 {sel_month}월 당직 배정 (DARK)")
 
 col_info, col_cal = st.columns([1, 2.3])
 
@@ -173,11 +201,11 @@ with col_info:
     if c2.button("🏃 순위 추첨", use_container_width=True):
         st.session_state.selection_order = random.sample(MEMBER_LIST, len(MEMBER_LIST))
         st.session_state.current_picker_idx = 0
-        st.success("순위 추첨 완료!")
 
     if st.session_state.quota_info:
         b1, h1, b2, l2 = st.session_state.quota_info
-        st.info(f"✨ **{b1}회**: {', '.join(h1)}\n\n✨ **{b2}회**: {', '.join(l2)}")
+        st.info(f"✨ {b1}회: {', '.join(h1)}")
+        st.success(f"✨ {b2}회: {', '.join(l2)}")
 
     st.divider()
     ctrl1, ctrl2 = st.columns(2)
@@ -185,7 +213,7 @@ with col_info:
         last = st.session_state.history.pop()
         st.session_state.update({'slots': last['slots'], 'quotas': last['quotas'], 'current_picker_idx': last['current_picker_idx'], 'pass_log': last['pass_log']})
         st.rerun()
-    if ctrl2.button("🚫 패스(배분)", use_container_width=True):
+    if ctrl2.button("🚫 패스", use_container_width=True):
         if st.session_state.selection_order: pass_turn(st.session_state.selection_order[st.session_state.current_picker_idx])
 
     if st.session_state.pass_log:
@@ -193,16 +221,13 @@ with col_info:
 
     st.subheader("📋 순위별 대기열")
     if st.session_state.selection_order:
-        # 현재 차례인 사람이 횟수가 없으면 다음 순위로 이동
         curr_p = st.session_state.selection_order[st.session_state.current_picker_idx]
-        if st.session_state.quotas.get(curr_p, 0) <= 0:
-            move_to_next_picker()
+        if st.session_state.quotas.get(curr_p, 0) <= 0: move_to_next_picker()
 
         for rank, name in enumerate(st.session_state.selection_order, 1):
             q = st.session_state.quotas.get(name, 0)
             if q <= 0: continue
             
-            # 희망 번호 실시간 필터링
             raw_prefs = [x.strip() for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
             rem_prefs = [p for p in raw_prefs if int(p) < len(st.session_state.slots) and st.session_state.slots[int(p)]['owner'] is None]
             
@@ -219,12 +244,11 @@ with col_info:
                         st.session_state.quotas[name] -= 1; move_to_next_picker(); st.rerun()
                     else: pass_turn(name)
             else:
-                st.markdown(f"**{rank}위: {name}**{abs_display} ({q}회){pref_display}", unsafe_allow_html=True)
+                st.markdown(f"<span style='color:white;'>**{rank}위: {name}**{abs_display} ({q}회){pref_display}</span>", unsafe_allow_html=True)
 
 with col_cal:
     h_cols = st.columns(7); days_kr = ["일", "월", "화", "수", "목", "금", "토"]
     for i, h in enumerate(days_kr):
-        # 헤더 글씨 하얀색 + 어두운 배경 적용
         h_cols[i].markdown(f'<div class="day-header-box">{h}</div>', unsafe_allow_html=True)
 
     if st.session_state.slots:
@@ -271,4 +295,4 @@ def make_excel():
 
 st.divider()
 if st.session_state.slots:
-    st.download_button("💾 엑셀 저장", data=make_excel(), file_name=f"CARE팀_{sel_month}월.xlsx", use_container_width=True, type="primary")
+    st.download_button("💾 엑셀 저장 (다크 테마 결과)", data=make_excel(), file_name=f"CARE팀_{sel_month}월.xlsx", use_container_width=True, type="primary")
