@@ -19,23 +19,117 @@ def get_2026_holidays(month):
     }
     return holidays.get(month, [])
 
-# --- 세션 상태 초기화 (AttributeError 방지를 위해 보강) ---
+# --- 1. 초기화 로직 (에러 방지 및 필수 키 생성) ---
 REQUIRED_KEYS = {
     'quotas': {},
     'selection_order': [],
     'current_picker_idx': 0,
     'slots': [],
     'absentees': set(),
-    'absentee_prefs': {name: "" for name in MEMBER_LIST},
-    'history': [], # 에러가 발생한 지점: 반드시 초기화 필요
+    'absentee_prefs': {name: "" for name in ["양기윤", "전소영", "임채성", "홍부휘", "이지용", "조현진", "정용채", "강창신", "김덕기", "우성대", "홍그린"]},
+    'history': [],
     'manual_mode': False,
-    'admin_selected_member': MEMBER_LIST[0] if MEMBER_LIST else "",
-    'quota_info': None
+    'quota_info': None,
+    'pass_log': "" # 누가 추가 당직을 받았는지 기록
 }
 
 for key, default_value in REQUIRED_KEYS.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
+
+# --- 2. 순서 이동 최적화 함수 ---
+def move_to_next_picker():
+    """횟수가 남아있는 다음 사람을 찾을 때까지 인덱스 이동"""
+    if not st.session_state.selection_order:
+        return
+
+    # 최대 인원수만큼 순회하며 횟수가 있는 사람 탐색
+    for _ in range(len(st.session_state.selection_order)):
+        curr_name = st.session_state.selection_order[st.session_state.current_picker_idx]
+        if st.session_state.quotas.get(curr_name, 0) > 0:
+            return # 횟수가 남아있는 사람 발견 시 중단
+        
+        # 횟수가 0이면 다음 사람으로 인덱스 증가
+        st.session_state.current_picker_idx = (st.session_state.current_picker_idx + 1) % len(st.session_state.selection_order)
+
+# --- 3. 패스 및 배분 로직 ---
+def pass_turn(name):
+    rem = st.session_state.quotas.get(name, 0)
+    if rem <= 0: return
+
+    # 현재 상태 저장 (Undo용)
+    snapshot = {
+        'slots': copy.deepcopy(st.session_state.slots),
+        'quotas': copy.deepcopy(st.session_state.quotas),
+        'current_picker_idx': st.session_state.current_picker_idx,
+        'pass_log': st.session_state.pass_log
+    }
+    st.session_state.history.append(snapshot)
+
+    # 본인을 제외하고 횟수가 남아있는(대상자) 사람 찾기
+    others = [n for n in st.session_state.selection_order if n != name and st.session_state.quotas.get(n, 0) > 0]
+    
+    if others:
+        dist_log = []
+        for _ in range(rem):
+            target = random.choice(others)
+            st.session_state.quotas[target] += 1
+            dist_log.append(target)
+        
+        # 누가 받았는지 요약 생성
+        summary = {x: dist_log.count(x) for x in set(dist_log)}
+        log_msg = f"📢 **{name}**님 패스 → " + ", ".join([f"**{k}**(+{v}회)" for k, v in summary.items()])
+        st.session_state.pass_log = log_msg
+    else:
+        st.session_state.pass_log = f"⚠️ {name}님 패스 (배분 대상이 없어 {rem}회 소멸)"
+    
+    st.session_state.quotas[name] = 0
+    move_to_next_picker()
+    st.rerun()
+
+# --- 4. 화면 출력 부분 (col_info 내부) ---
+with col_info:
+    # ... (추첨 버튼 생략) ...
+
+    # 패스 결과 알림 표시
+    if st.session_state.pass_log:
+        st.success(st.session_state.pass_log)
+
+    st.subheader("📋 실시간 대기 순서")
+    if st.session_state.selection_order:
+        # 현재 차례인 사람이 횟수가 0이면 자동으로 다음 사람으로 넘김
+        move_to_next_picker()
+        
+        # 순서 목록 출력
+        for idx, name in enumerate(st.session_state.selection_order):
+            q = st.session_state.quotas.get(name, 0)
+            
+            # 핵심 변경: 횟수가 0인 사람은 화면에서 제외
+            if q <= 0:
+                continue
+            
+            is_turn = (idx == st.session_state.current_picker_idx)
+            
+            # 희망 잔여 번호 계산
+            pref_ids = [int(x.strip()) for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
+            rem_prefs = [p_id for p_id in pref_ids if p_id < len(st.session_state.slots) and st.session_state.slots[p_id]['owner'] is None]
+            
+            prefix = "👉" if is_turn else "•"
+            tag = " [부재]" if name in st.session_state.absentees else ""
+            pref_txt = f" | 🌟남음: {', '.join(map(str, rem_prefs))}" if rem_prefs else ""
+            
+            if is_turn:
+                st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:5px; border-left:5px solid #ffa000;'><b>{prefix} {name} ({q}회){tag}{pref_txt}</b></div>", unsafe_allow_html=True)
+                
+                # 부재자 자동 처리 로직
+                if name in st.session_state.absentees:
+                    if rem_prefs:
+                        # 희망 날짜 배정 로직 (생략 - 기존과 동일하게 save_history 후 배정)
+                        pass 
+                    else:
+                        pass_turn(name) # 희망 날짜 없으면 자동 패스
+            else:
+                st.write(f"{prefix} {name} ({q}회){tag}{pref_txt}")
 
 # --- 주요 로직 함수 ---
 def save_history():
