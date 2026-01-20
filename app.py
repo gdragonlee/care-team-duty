@@ -1,131 +1,94 @@
 import streamlit as st
-import random
-import calendar
 import io
+import calendar
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, PatternFill, Border, Side, Font
 
-# --- 설정 데이터 ---
-MEMBER_LIST = ["양기윤", "전소영", "임채성", "홍부휘", "이지용", 
-               "조현진", "정용채", "강창신", "김덕기", "우성대", "홍그린"]
+# ... (기존 설정 및 세션 초기화 코드 생략) ...
 
-def get_2026_holidays(month):
-    holidays = {
-        1: [1], 2: [16, 17, 18], 3: [1, 2], 
-        5: [5, 24, 25], 6: [6], 8: [15, 17], 
-        9: [24, 25, 26], 10: [3, 5, 9], 12: [25]
-    }
-    return holidays.get(month, [])
-
-# --- 세션 상태 초기화 ---
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = True
-    st.session_state.quotas = {}
-    st.session_state.selection_order = []
-    st.session_state.current_picker_idx = 0
-    st.session_state.final_schedule = {name: [] for name in MEMBER_LIST}
-    st.session_state.absentees = set()
-    st.session_state.absentee_prefs = {name: [] for name in MEMBER_LIST}
-    st.session_state.slots = [] # {day, type, owner, id}
-
-# --- UI 구성 ---
-st.set_page_config(page_title="2026 CARE팀 당직 배정", layout="wide")
-st.title("📅 2026년 CARE팀 당직 배정 시스템")
-
-# 사이드바: 설정
-with st.sidebar:
-    st.header("1단계: 기본 설정")
-    month = st.number_input("배정 월", min_value=1, max_value=12, value=1)
-    
-    if st.button("📅 새 달력 생성"):
-        # 초기화 로직
-        cal = calendar.monthcalendar(2026, month)
-        heavy_days = set(get_2026_holidays(month))
-        new_slots = []
-        slot_id = 0
-        for week in cal:
-            if week[0] != 0: heavy_days.add(week[0])
-            if week[6] != 0: heavy_days.add(week[6])
-            for c_idx, day in enumerate(week):
-                if day == 0: continue
-                if day in heavy_days:
-                    new_slots.append({"day": day, "type": "Day", "owner": None, "id": slot_id})
-                    slot_id += 1
-                new_slots.append({"day": day, "type": "Night", "owner": None, "id": slot_id})
-                slot_id += 1
-        st.session_state.slots = new_slots
-        st.session_state.quotas = {}
-        st.session_state.selection_order = []
-        st.rerun()
-
-    st.divider()
-    st.header("2단계: 부재자 설정")
-    selected_absentees = st.multiselect("부재자 선택", MEMBER_LIST)
-    st.session_state.absentees = set(selected_absentees)
-
-# 메인 화면: 추첨 및 진행
-col1, col2 = st.columns([1, 3])
-
-with col1:
-    st.subheader("🎲 추첨 진행")
-    if st.button("근무 횟수 추첨"):
-        total = len(st.session_state.slots)
-        base, extra = divmod(total, len(MEMBER_LIST))
-        temp = MEMBER_LIST.copy()
-        random.shuffle(temp)
-        p1 = temp[:extra]
-        st.session_state.quotas = {n: base + 1 if n in p1 else base for n in MEMBER_LIST}
-        st.success("횟수 배분 완료!")
-
-    if st.button("선택 순서 추첨"):
-        order = MEMBER_LIST.copy()
-        random.shuffle(order)
-        st.session_state.selection_order = order
-        st.session_state.current_picker_idx = 0
-        st.success("순서 추첨 완료!")
-
-    st.divider()
-    st.subheader("📊 배정 현황")
-    if st.session_state.selection_order:
-        for idx, name in enumerate(st.session_state.selection_order):
-            q = st.session_state.quotas.get(name, 0)
-            status = "👈 차례" if idx == st.session_state.current_picker_idx else ""
-            st.write(f"{idx+1}. **{name}** ({q}회 남음) {status}")
-
-with col2:
-    st.subheader("🗓️ 당직 선택 판")
-    if not st.session_state.slots:
-        st.info("사이드바에서 '새 달력 생성'을 먼저 눌러주세요.")
-    else:
-        # 달력 형태로 출력
-        cols = st.columns(7)
-        days = ["일", "월", "화", "수", "목", "금", "토"]
-        for i, d in enumerate(days):
-            cols[i].centered_text = f"**{d}**"
-            cols[i].write(f"**{d}**")
-
-        # 슬롯 배치
-        for slot in st.session_state.slots:
-            # 단순 리스트 형태로 표시하거나, 로직에 맞게 배치
-            btn_label = f"{slot['day']}일 {slot['type']}"
-            if slot['owner']:
-                st.button(f"{btn_label}\n[{slot['owner']}]", key=f"slot_{slot['id']}", disabled=True)
-            else:
-                if st.button(btn_label, key=f"slot_{slot['id']}"):
-                    # 선택 로직
-                    curr_name = st.session_state.selection_order[st.session_state.current_picker_idx]
-                    if st.session_state.quotas[curr_name] > 0:
-                        slot['owner'] = curr_name
-                        st.session_state.quotas[curr_name] -= 1
-                        # 다음 사람으로 (횟수 남은 사람 찾기)
-                        st.session_state.current_picker_idx = (st.session_state.current_picker_idx + 1) % len(MEMBER_LIST)
-                        st.rerun()
-
-# 엑셀 다운로드 기능
-if st.button("💾 최종 당직표 엑셀 다운로드"):
+# --- 엑셀 생성 함수 ---
+def generate_excel(year, month, slots):
     output = io.BytesIO()
     wb = Workbook()
     ws = wb.active
-    # ... (엑셀 저장 로직 생략 - 기존 코드와 유사하게 구현 가능) ...
+    ws.title = f"{year}년 {month}월 당직표"
+
+    # 헤더 스타일 설정
+    headers = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"]
+    header_fill = PatternFill(start_color="333333", end_color="333333", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    
+    for col_idx, day_name in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=day_name)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+        ws.column_dimensions[cell.column_letter].width = 22 # 열 너비 조정
+
+    # 달력 데이터 매핑
+    day_map = {}
+    for s in slots:
+        d = s['day']
+        if d not in day_map: day_map[d] = {"Day": "", "Night": ""}
+        day_map[d][s['type']] = s['owner'] if s['owner'] else ""
+
+    # 테두리 스타일
+    thin_border = Border(
+        left=Side(style='thin'), right=Side(style='thin'), 
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+    holiday_fill = PatternFill(start_color="FFD9D9", end_color="FFD9D9", fill_type="solid") # 빨간색(휴일)
+    saturday_fill = PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid") # 초록색(토요일)
+
+    # 달력 그리기
+    cal = calendar.monthcalendar(year, month)
+    heavy_days = get_2026_holidays(month)
+    
+    for r_idx, week in enumerate(cal, 2):
+        ws.row_dimensions[r_idx].height = 80 # 행 높이 조정
+        for c_idx, day in enumerate(week):
+            if day == 0: continue
+            
+            col = c_idx + 1
+            cell = ws.cell(row=r_idx, column=col)
+            
+            # 내용 입력 (D: 이름 / N: 이름)
+            d_name = day_map.get(day, {}).get("Day", "")
+            n_name = day_map.get(day, {}).get("Night", "")
+            cell.value = f"[{day}일]\n\n주간(D): {d_name}\n야간(N): {n_name}"
+            
+            # 스타일 적용
+            cell.alignment = Alignment(wrap_text=True, vertical="top", horizontal="left")
+            cell.border = thin_border
+            
+            # 색상 적용 (일요일/공휴일 vs 토요일)
+            if c_idx == 0 or day in heavy_days:
+                cell.fill = holiday_fill
+            elif c_idx == 6:
+                cell.fill = saturday_fill
+
     wb.save(output)
-    st.download_button(label="엑셀 파일 받기", data=output.getvalue(), file_name="duty_schedule.xlsx")
+    return output.getvalue()
+
+# --- 메인 화면 하단 다운로드 섹션 ---
+st.divider()
+st.subheader("💾 최종 당직표 저장")
+
+if st.session_state.slots:
+    # 모든 슬롯이 배정되었는지 확인 (선택 사항)
+    unassigned_count = sum(1 for s in st.session_state.slots if s['owner'] is None)
+    
+    if unassigned_count > 0:
+        st.warning(f"아직 배정되지 않은 슬롯이 {unassigned_count}개 있습니다.")
+    
+    excel_data = generate_excel(st.session_state.year, sel_month, st.session_state.slots)
+    
+    st.download_button(
+        label="📊 엑셀 파일로 다운로드 (.xlsx)",
+        data=excel_data,
+        file_name=f"CARE팀_{sel_month}월_당직표.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+else:
+    st.info("당직 배정을 완료한 후 엑셀 파일을 생성할 수 있습니다.")
