@@ -36,7 +36,7 @@ def save_history():
     if len(st.session_state.history) > 20: st.session_state.history.pop(0)
 
 def move_to_next_picker():
-    """1회 선택 후 다음 순위자로 교대 (남은 횟수 체크)"""
+    """1회 선택 후 다음 순위자로 교대"""
     if not st.session_state.selection_order: return
     for _ in range(len(st.session_state.selection_order)):
         st.session_state.current_picker_idx = (st.session_state.current_picker_idx + 1) % len(st.session_state.selection_order)
@@ -62,6 +62,17 @@ st.set_page_config(page_title="CARE팀 당직 시스템", layout="wide")
 
 st.markdown("""
     <style>
+    /* 요일 헤더: 어두운 배경 + 하얀색 글씨 */
+    .day-header-box {
+        background-color: #343a40;
+        color: #ffffff !important;
+        text-align: center;
+        font-weight: 900;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        font-size: 1.1rem;
+    }
     /* 평일 날짜: 검정 배경 + 하얀색 글씨 */
     .date-tag-normal {
         background-color: #212529; 
@@ -82,14 +93,14 @@ st.markdown("""
         display: inline-block;
         margin-bottom: 5px;
     }
-    /* 평일 버튼 글씨 하얀색 */
+    /* 모든 버튼 내 글씨 하얀색 강제 적용 */
     div[data-testid="stButton"] button p {
         color: white !important;
         font-weight: 700;
     }
-    /* 선택 완료된 버튼 (어두운 배경) */
+    /* 선택 완료된 어두운 버튼 */
     div[data-testid="stButton"] button[disabled] {
-        background-color: #343a40 !important;
+        background-color: #495057 !important;
         opacity: 1 !important;
     }
     /* 순위 박스 스타일 */
@@ -99,6 +110,16 @@ st.markdown("""
         padding: 12px;
         border-radius: 8px;
         color: #212529;
+    }
+    /* 부재중 뱃지 스타일 */
+    .absent-badge {
+        color: #e03131;
+        font-weight: bold;
+        background-color: #ffe3e3;
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-left: 5px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -129,10 +150,10 @@ with st.sidebar:
     st.divider()
     for name in sorted(MEMBER_LIST):
         with st.expander(f"{name} 설정"):
-            is_abs = st.checkbox("부재", key=f"abs_{name}", value=(name in st.session_state.absentees))
+            is_abs = st.checkbox("부재중 체크", key=f"abs_{name}", value=(name in st.session_state.absentees))
             if is_abs: st.session_state.absentees.add(name)
             else: st.session_state.absentees.discard(name)
-            st.session_state.absentee_prefs[name] = st.text_input("희망 ID", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
+            st.session_state.absentee_prefs[name] = st.text_input("희망 ID(쉼표)", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
 
 # --- 메인 화면 ---
 st.title(f"📅 2026년 {sel_month}월 당직 배정")
@@ -149,12 +170,10 @@ with col_info:
         st.session_state.quotas = {n: b+1 if n in h else b for n in MEMBER_LIST}
         st.session_state.quota_info = (b+1, h, b, l)
     
-    # 순위 추첨: 1위부터 11위까지 무작위 결정 후 정렬하여 저장
     if c2.button("🏃 순위 추첨", use_container_width=True):
-        order = random.sample(MEMBER_LIST, len(MEMBER_LIST))
-        st.session_state.selection_order = order
+        st.session_state.selection_order = random.sample(MEMBER_LIST, len(MEMBER_LIST))
         st.session_state.current_picker_idx = 0
-        st.success("순위 추첨이 완료되었습니다!")
+        st.success("순위 추첨 완료!")
 
     if st.session_state.quota_info:
         b1, h1, b2, l2 = st.session_state.quota_info
@@ -174,36 +193,39 @@ with col_info:
 
     st.subheader("📋 순위별 대기열")
     if st.session_state.selection_order:
-        # 현재 차례인 사람의 횟수가 0이면 다음 순위로 이동
-        curr_name_check = st.session_state.selection_order[st.session_state.current_picker_idx]
-        if st.session_state.quotas.get(curr_name_check, 0) <= 0:
+        # 현재 차례인 사람이 횟수가 없으면 다음 순위로 이동
+        curr_p = st.session_state.selection_order[st.session_state.current_picker_idx]
+        if st.session_state.quotas.get(curr_p, 0) <= 0:
             move_to_next_picker()
-            
+
         for rank, name in enumerate(st.session_state.selection_order, 1):
             q = st.session_state.quotas.get(name, 0)
             if q <= 0: continue
             
+            # 희망 번호 실시간 필터링
+            raw_prefs = [x.strip() for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
+            rem_prefs = [p for p in raw_prefs if int(p) < len(st.session_state.slots) and st.session_state.slots[int(p)]['owner'] is None]
+            
+            pref_display = f" | 🌟 남음: {', '.join(rem_prefs)}" if rem_prefs else ""
+            abs_display = '<span class="absent-badge">[부재중]</span>' if name in st.session_state.absentees else ""
             is_turn = ((rank - 1) == st.session_state.current_picker_idx)
-            pref_txt = f" | 🌟 희망: {st.session_state.absentee_prefs[name]}" if st.session_state.absentee_prefs[name] else ""
 
             if is_turn:
-                st.markdown(f"""<div class="turn-box"><b>👉 {rank}위: {name} ({q}회){pref_txt}</b></div>""", unsafe_allow_html=True)
-                # 부재자 자동 처리
+                st.markdown(f"""<div class="turn-box"><b>👉 {rank}위: {name}{abs_display} ({q}회){pref_display}</b></div>""", unsafe_allow_html=True)
                 if name in st.session_state.absentees:
-                    pref_ids = [int(x.strip()) for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
-                    rem_prefs = [p_id for p_id in pref_ids if p_id < len(st.session_state.slots) and st.session_state.slots[p_id]['owner'] is None]
                     if rem_prefs:
-                        save_history(); st.session_state.slots[rem_prefs[0]]['owner'] = name
+                        target_id = int(rem_prefs[0])
+                        save_history(); st.session_state.slots[target_id]['owner'] = name
                         st.session_state.quotas[name] -= 1; move_to_next_picker(); st.rerun()
                     else: pass_turn(name)
             else:
-                st.write(f"**{rank}위: {name}** ({q}회){pref_txt}")
+                st.markdown(f"**{rank}위: {name}**{abs_display} ({q}회){pref_display}", unsafe_allow_html=True)
 
 with col_cal:
     h_cols = st.columns(7); days_kr = ["일", "월", "화", "수", "목", "금", "토"]
     for i, h in enumerate(days_kr):
-        c = "#e03131" if i == 0 else "#1971c2" if i == 6 else "#FFFFFF"
-        h_cols[i].markdown(f'<div style="text-align:center; color:{c}; border-bottom:3px solid {c}; font-weight:900; font-size:1.1rem; padding:8px;">{h}</div>', unsafe_allow_html=True)
+        # 헤더 글씨 하얀색 + 어두운 배경 적용
+        h_cols[i].markdown(f'<div class="day-header-box">{h}</div>', unsafe_allow_html=True)
 
     if st.session_state.slots:
         cal = calendar.monthcalendar(2026, sel_month); h_days = get_2026_holidays(sel_month)
@@ -214,7 +236,6 @@ with col_cal:
                 is_h = (i == 0 or i == 6 or day in h_days)
                 tag_class = "date-tag-holiday" if is_h else "date-tag-normal"
                 with w_cols[i]:
-                    # 모든 날짜 고대비 박스 (평일은 하얀색 글씨 적용됨)
                     st.markdown(f'<div class="{tag_class}">{day}일</div>', unsafe_allow_html=True)
                     for s in [sl for sl in st.session_state.slots if sl['day'] == day]:
                         label = f"{s['type'][0]}:{s['id']}"
