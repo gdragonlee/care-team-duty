@@ -126,4 +126,3 @@ with col_cal:
                     day_slots = [s for s in st.session_state.slots if s['day'] == day]
                     for s in day_slots:
                         # 버튼 표시 및 선택 로직 (동일)
-                        # ...
