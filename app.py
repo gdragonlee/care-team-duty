@@ -198,7 +198,7 @@ with col_info:
 with col_cal:
     h_cols = st.columns(7); days_kr = ["일", "월", "화", "수", "목", "금", "토"]
     for i, h in enumerate(days_kr):
-        c = "#e03131" if i == 0 else "#1971c2" if i == 6 else "#212529"
+        c = "#e03131" if i == 0 else "#1971c2" if i == 6 else "#FFFFFF"
         h_cols[i].markdown(f'<div class="day-header" style="text-align:center; color:{c}; border-color:{c};">{h}</div>', unsafe_allow_html=True)
 
     if st.session_state.slots:
