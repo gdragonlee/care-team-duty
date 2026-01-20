@@ -36,7 +36,7 @@ def save_history():
     if len(st.session_state.history) > 20: st.session_state.history.pop(0)
 
 def move_to_next_picker():
-    """1회 선택 후 다음 순번으로 교대"""
+    """1회 선택 후 다음 순위자로 교대 (남은 횟수 체크)"""
     if not st.session_state.selection_order: return
     for _ in range(len(st.session_state.selection_order)):
         st.session_state.current_picker_idx = (st.session_state.current_picker_idx + 1) % len(st.session_state.selection_order)
@@ -62,7 +62,7 @@ st.set_page_config(page_title="CARE팀 당직 시스템", layout="wide")
 
 st.markdown("""
     <style>
-    /* 평일 날짜/글씨용: 검정 배경 + 하얀색 글씨 */
+    /* 평일 날짜: 검정 배경 + 하얀색 글씨 */
     .date-tag-normal {
         background-color: #212529; 
         color: #ffffff !important;
@@ -72,7 +72,7 @@ st.markdown("""
         display: inline-block;
         margin-bottom: 5px;
     }
-    /* 공휴일/주말용: 빨간 배경 + 하얀색 글씨 (공휴일은 요청에 따라 빨간색 유지) */
+    /* 공휴일/주말: 빨간 배경 + 하얀색 글씨 */
     .date-tag-holiday {
         background-color: #e03131;
         color: #ffffff !important;
@@ -82,28 +82,23 @@ st.markdown("""
         display: inline-block;
         margin-bottom: 5px;
     }
-    /* 평일 버튼 글씨 하얀색 강제 적용 */
+    /* 평일 버튼 글씨 하얀색 */
     div[data-testid="stButton"] button p {
         color: white !important;
         font-weight: 700;
     }
-    /* 요일 헤더는 기존 색상 유지 (CSS 영향 제외) */
-    .day-header {
-        font-weight: 900;
-        font-size: 1.1rem;
-        padding: 8px;
-        border-bottom: 3px solid;
-    }
-    /* 배정 완료 버튼 스타일 */
+    /* 선택 완료된 버튼 (어두운 배경) */
     div[data-testid="stButton"] button[disabled] {
         background-color: #343a40 !important;
         opacity: 1 !important;
     }
+    /* 순위 박스 스타일 */
     .turn-box {
         background-color: #fff3bf;
         border-left: 6px solid #f08c00;
         padding: 12px;
         border-radius: 8px;
+        color: #212529;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -127,9 +122,9 @@ with st.sidebar:
         st.session_state.update({'slots': new_slots, 'quotas': {}, 'selection_order': [], 'current_picker_idx': 0, 'history': [], 'pass_log': ""})
         st.rerun()
 
-    st.session_state.manual_mode = st.toggle("🛡️ 수동 모드 (강제 배정)")
+    st.session_state.manual_mode = st.toggle("🛡️ 수동 모드")
     if st.session_state.manual_mode:
-        st.session_state.admin_selected_member = st.selectbox("배정 대상자", MEMBER_LIST)
+        st.session_state.admin_selected_member = st.selectbox("강제 배정 대상", MEMBER_LIST)
 
     st.divider()
     for name in sorted(MEMBER_LIST):
@@ -153,8 +148,13 @@ with col_info:
         h, l = sorted(tmp[:e]), sorted(tmp[e:])
         st.session_state.quotas = {n: b+1 if n in h else b for n in MEMBER_LIST}
         st.session_state.quota_info = (b+1, h, b, l)
-    if c2.button("🏃 순서 추첨", use_container_width=True):
-        order = MEMBER_LIST.copy(); random.shuffle(order); st.session_state.selection_order = order; st.session_state.current_picker_idx = 0
+    
+    # 순위 추첨: 1위부터 11위까지 무작위 결정 후 정렬하여 저장
+    if c2.button("🏃 순위 추첨", use_container_width=True):
+        order = random.sample(MEMBER_LIST, len(MEMBER_LIST))
+        st.session_state.selection_order = order
+        st.session_state.current_picker_idx = 0
+        st.success("순위 추첨이 완료되었습니다!")
 
     if st.session_state.quota_info:
         b1, h1, b2, l2 = st.session_state.quota_info
@@ -172,34 +172,38 @@ with col_info:
     if st.session_state.pass_log:
         st.warning(st.session_state.pass_log)
 
-    st.subheader("📋 대기열 & 희망번호")
+    st.subheader("📋 순위별 대기열")
     if st.session_state.selection_order:
-        move_to_next_picker()
-        for idx, name in enumerate(st.session_state.selection_order):
+        # 현재 차례인 사람의 횟수가 0이면 다음 순위로 이동
+        curr_name_check = st.session_state.selection_order[st.session_state.current_picker_idx]
+        if st.session_state.quotas.get(curr_name_check, 0) <= 0:
+            move_to_next_picker()
+            
+        for rank, name in enumerate(st.session_state.selection_order, 1):
             q = st.session_state.quotas.get(name, 0)
             if q <= 0: continue
-            is_turn = (idx == st.session_state.current_picker_idx)
-            pref_ids = [int(x.strip()) for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
-            rem_prefs = [p_id for p_id in pref_ids if p_id < len(st.session_state.slots) and st.session_state.slots[p_id]['owner'] is None]
             
-            # 이름 옆에 희망 번호 표시
+            is_turn = ((rank - 1) == st.session_state.current_picker_idx)
             pref_txt = f" | 🌟 희망: {st.session_state.absentee_prefs[name]}" if st.session_state.absentee_prefs[name] else ""
 
             if is_turn:
-                st.markdown(f"""<div class="turn-box"><b>👉 {name} ({q}회){pref_txt}</b></div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div class="turn-box"><b>👉 {rank}위: {name} ({q}회){pref_txt}</b></div>""", unsafe_allow_html=True)
+                # 부재자 자동 처리
                 if name in st.session_state.absentees:
+                    pref_ids = [int(x.strip()) for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
+                    rem_prefs = [p_id for p_id in pref_ids if p_id < len(st.session_state.slots) and st.session_state.slots[p_id]['owner'] is None]
                     if rem_prefs:
                         save_history(); st.session_state.slots[rem_prefs[0]]['owner'] = name
                         st.session_state.quotas[name] -= 1; move_to_next_picker(); st.rerun()
                     else: pass_turn(name)
             else:
-                st.write(f"• **{name}** ({q}회){pref_txt}")
+                st.write(f"**{rank}위: {name}** ({q}회){pref_txt}")
 
 with col_cal:
     h_cols = st.columns(7); days_kr = ["일", "월", "화", "수", "목", "금", "토"]
     for i, h in enumerate(days_kr):
         c = "#e03131" if i == 0 else "#1971c2" if i == 6 else "#FFFFFF"
-        h_cols[i].markdown(f'<div class="day-header" style="text-align:center; color:{c}; border-color:{c};">{h}</div>', unsafe_allow_html=True)
+        h_cols[i].markdown(f'<div style="text-align:center; color:{c}; border-bottom:3px solid {c}; font-weight:900; font-size:1.1rem; padding:8px;">{h}</div>', unsafe_allow_html=True)
 
     if st.session_state.slots:
         cal = calendar.monthcalendar(2026, sel_month); h_days = get_2026_holidays(sel_month)
@@ -210,14 +214,13 @@ with col_cal:
                 is_h = (i == 0 or i == 6 or day in h_days)
                 tag_class = "date-tag-holiday" if is_h else "date-tag-normal"
                 with w_cols[i]:
-                    # 평일/공휴일 모두 고대비 박스 안에 하얀색 글씨
+                    # 모든 날짜 고대비 박스 (평일은 하얀색 글씨 적용됨)
                     st.markdown(f'<div class="{tag_class}">{day}일</div>', unsafe_allow_html=True)
                     for s in [sl for sl in st.session_state.slots if sl['day'] == day]:
                         label = f"{s['type'][0]}:{s['id']}"
                         if s['owner']:
                             st.button(f"👤 {s['owner']}", key=f"b{s['id']}", disabled=True, use_container_width=True)
                         else:
-                            # 버튼 내 글씨색은 CSS에서 하얀색으로 강제 설정됨
                             if st.button(label, key=f"b{s['id']}", use_container_width=True):
                                 save_history()
                                 target = st.session_state.admin_selected_member if st.session_state.manual_mode else st.session_state.selection_order[st.session_state.current_picker_idx]
@@ -226,7 +229,7 @@ with col_cal:
                                     if not st.session_state.manual_mode: move_to_next_picker()
                                     st.rerun()
 
-# --- 엑셀 저장 (생략 없이 포함) ---
+# --- 엑셀 저장 ---
 def make_excel():
     output = io.BytesIO(); wb = Workbook(); ws = wb.active; ws.title = f"{sel_month}월"
     headers = ["일", "월", "화", "수", "목", "금", "토"]
@@ -247,4 +250,4 @@ def make_excel():
 
 st.divider()
 if st.session_state.slots:
-    st.download_button("💾 엑셀 저장하기", data=make_excel(), file_name=f"CARE팀_{sel_month}월.xlsx", use_container_width=True, type="primary")
+    st.download_button("💾 엑셀 저장", data=make_excel(), file_name=f"CARE팀_{sel_month}월.xlsx", use_container_width=True, type="primary")
