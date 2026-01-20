@@ -57,7 +57,7 @@ def pass_turn(name):
     st.rerun()
 
 # --- 화면 레이아웃 및 강제 다크 모드 CSS ---
-st.set_page_config(page_title="CARE팀 다크 당직 시스템", layout="wide")
+st.set_page_config(page_title="CARE팀 당직 시스템", layout="wide")
 
 st.markdown("""
     <style>
@@ -154,7 +154,7 @@ st.markdown("""
 
 # --- 사이드바 영역 ---
 with st.sidebar:
-    st.title("🌑 다크 관리자")
+    st.title("🌑 관리자")
     sel_month = st.number_input("배정 월", 1, 12, 1)
     if st.button("📅 새 달력 데이터 초기화", use_container_width=True):
         cal = calendar.monthcalendar(2026, sel_month); h_days = set(get_2026_holidays(sel_month))
@@ -184,7 +184,7 @@ with st.sidebar:
             st.session_state.absentee_prefs[name] = st.text_input("희망 ID(쉼표)", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
 
 # --- 메인 화면 ---
-st.title(f"🌑 2026년 {sel_month}월 당직 배정 (DARK)")
+st.title(f"🌑 2026년 {sel_month}월 당직 배정")
 
 col_info, col_cal = st.columns([1, 2.3])
 
