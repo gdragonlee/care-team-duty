@@ -19,21 +19,23 @@ def get_2026_holidays(month):
     }
     return holidays.get(month, [])
 
-# --- 세션 상태 초기화 ---
-if 'initialized' not in st.session_state:
-    st.session_state.update({
-        'initialized': True,
-        'quotas': {},
-        'selection_order': [],
-        'current_picker_idx': 0,
-        'slots': [],
-        'absentees': set(),
-        'absentee_prefs': {name: "" for name in MEMBER_LIST},
-        'history': [], # 되돌리기를 위한 상태 저장소
-        'manual_mode': False,
-        'admin_selected_member': MEMBER_LIST[0],
-        'quota_info': None
-    })
+# --- 세션 상태 초기화 (AttributeError 방지를 위해 보강) ---
+REQUIRED_KEYS = {
+    'quotas': {},
+    'selection_order': [],
+    'current_picker_idx': 0,
+    'slots': [],
+    'absentees': set(),
+    'absentee_prefs': {name: "" for name in MEMBER_LIST},
+    'history': [], # 에러가 발생한 지점: 반드시 초기화 필요
+    'manual_mode': False,
+    'admin_selected_member': MEMBER_LIST[0] if MEMBER_LIST else "",
+    'quota_info': None
+}
+
+for key, default_value in REQUIRED_KEYS.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
 
 # --- 주요 로직 함수 ---
 def save_history():
