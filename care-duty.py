@@ -142,19 +142,15 @@ with col_info:
     st.divider()
     ctrl1, ctrl2 = st.columns(2)
 if ctrl1.button("↩️ 되돌리기", use_container_width=True, disabled=not st.session_state.history):
-    # pop()을 하기 전에 리스트가 비어있는지 한 번 더 확인합니다.
-    if len(st.session_state.history) > 0:
-        last = st.session_state.history.pop()
-        st.session_state.update({
-            'slots': last['slots'], 
-            'quotas': last['quotas'], 
-            'current_picker_idx': last['current_picker_idx'], 
-            'pass_log': last['pass_log'], 
-            'undo_triggered': True
-        })
-        st.rerun()
-    else:
-        st.warning("되돌릴 기록이 없습니다.")
+    last = st.session_state.history.pop()
+    st.session_state.update({
+        'slots': last['slots'], 
+        'quotas': last['quotas'], 
+        'current_picker_idx': last['current_picker_idx'], 
+        'pass_log': last['pass_log'], 
+        'undo_triggered': True
+    })
+    st.rerun()
     if ctrl2.button("🚫 패스(배분)", use_container_width=True):
         if st.session_state.selection_order: pass_turn(st.session_state.selection_order[st.session_state.current_picker_idx])
 
