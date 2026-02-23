@@ -16,13 +16,12 @@ def get_2026_holidays(month):
                 6: [6], 8: [15, 17], 9: [24, 25, 26], 10: [3, 5, 9], 12: [25]}
     return holidays.get(month, [])
 
-# --- 2. 세션 상태 초기화 (되돌리기 루프 방지 변수 추가) ---
+# --- 2. 세션 상태 초기화 ---
 REQUIRED_KEYS = {
     'quotas': {}, 'selection_order': [], 'current_picker_idx': 0, 'slots': [],
     'absentees': set(), 'absentee_prefs': {name: "" for name in MEMBER_LIST},
     'history': [], 'manual_mode': False, 'admin_selected_member': MEMBER_LIST[0],
-    'quota_info': None, 'pass_log': "",
-    'undo_triggered': False  # 되돌리기 직후 자동배정 방지용 플래그
+    'quota_info': None, 'pass_log': "", 'undo_triggered': False
 }
 for key, default in REQUIRED_KEYS.items():
     if key not in st.session_state:
@@ -31,7 +30,7 @@ for key, default in REQUIRED_KEYS.items():
 # --- 3. 핵심 제어 함수 ---
 
 def save_history():
-    """현재 상태 스냅샷 저장"""
+    """현재 상태 스냅샷 저장 (Undo용)"""
     snapshot = {
         'slots': copy.deepcopy(st.session_state.slots),
         'quotas': copy.deepcopy(st.session_state.quotas),
@@ -62,30 +61,26 @@ def pass_turn(name):
         summary = {x: dist.count(x) for x in set(dist)}
         st.session_state.pass_log = f"🚫 **{name}** 패스 ➔ " + ", ".join([f"**{k}**(+{v}회)" for k, v in summary.items()])
     st.session_state.quotas[name] = 0
-    st.session_state.undo_triggered = False # 패스 시 플래그 초기화
+    st.session_state.undo_triggered = False
     find_next_valid_picker()
     st.rerun()
 
-# --- 4. 다크 모드 및 시인성 강화 CSS ---
-st.set_page_config(page_title="2026 CARE팀 당직 시스템", layout="wide")
+# --- 4. 고대비 다크 테마 디자인 (CSS) ---
+st.set_page_config(page_title="CARE팀 당직 시스템", layout="wide")
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: #ffffff; }
-    /* 요일 헤더: 어두운 배경 + 하얀색 글씨 */
-    .day-header-box {
-        background-color: #1c1e21; color: #ffffff !important; text-align: center;
-        font-weight: 900; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #495057;
-    }
+    .day-header-box { background-color: #1c1e21; color: #ffffff !important; text-align: center; font-weight: 900; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #495057; }
     .date-tag-normal { background-color: #495057; color: #ffffff !important; padding: 4px 12px; border-radius: 6px; font-weight: 800; border: 1px solid #adb5bd; }
     .date-tag-holiday { background-color: #c92a2a; color: #ffffff !important; padding: 4px 12px; border-radius: 6px; font-weight: 800; border: 1px solid #ffa8a8; }
     div[data-testid="stButton"] button p { color: white !important; font-weight: 700; }
     div[data-testid="stButton"] button[disabled] { background-color: #212529 !important; opacity: 1 !important; border: 1px solid #343a40 !important; }
-    .turn-box { background-color: #2b2f36; border-left: 8px solid #fd7e14; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+    .turn-box { background-color: #2b2f36; border-left: 8px solid #fd7e14; padding: 15px; border-radius: 10px; color: #ffffff; margin-bottom: 15px; }
     .absent-badge { color: #ff8787; font-weight: bold; background-color: #c92a2a33; padding: 2px 6px; border-radius: 4px; border: 1px solid #c92a2a; margin-left: 5px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. 사이드바 ---
+# --- 5. 사이드바 제어 ---
 with st.sidebar:
     st.title("🌑 12인 관리 메뉴")
     sel_month = st.number_input("배정 월", 1, 12, 1)
@@ -104,13 +99,13 @@ with st.sidebar:
         st.session_state.update({'slots': new_slots, 'quotas': {}, 'selection_order': [], 'current_picker_idx': 0, 'history': [], 'pass_log': "", 'quota_info': None, 'undo_triggered': False})
         st.rerun()
 
-    st.session_state.manual_mode = st.toggle("🛡️ 수동 모드 (순서 무시)")
+    st.session_state.manual_mode = st.toggle("🛡️ 수동 모드 (순번 무시)")
     if st.session_state.manual_mode:
-        st.session_state.admin_selected_member = st.selectbox("수동 배정 대상", MEMBER_LIST)
+        st.session_state.admin_selected_member = st.selectbox("배정 대상 선택", MEMBER_LIST)
 
     st.divider()
     for name in sorted(MEMBER_LIST):
-        with st.expander(f"⚙️ {name}"):
+        with st.expander(f"⚙️ {name} 설정"):
             is_abs = st.checkbox("부재중 체크", key=f"abs_{name}", value=(name in st.session_state.absentees))
             if is_abs: st.session_state.absentees.add(name)
             else: st.session_state.absentees.discard(name)
@@ -120,30 +115,52 @@ with st.sidebar:
 col_info, col_cal = st.columns([1, 2.3])
 
 with col_info:
-    st.subheader("🎲 추첨 및 제어")
-    c1, c2 = st.columns(2)
-    if c1.button("🔢 횟수 추첨", use_container_width=True):
+    st.subheader("🎲 추첨 및 순위 조정")
+    
+    # 횟수 추첨
+    if st.button("🔢 1. 근무 횟수 추첨", use_container_width=True):
         t = len(st.session_state.slots); b, e = divmod(t, 12)
         tmp = MEMBER_LIST.copy(); random.shuffle(tmp)
         h, l = sorted(tmp[:e]), sorted(tmp[e:])
         st.session_state.quotas = {n: b+1 if n in h else b for n in MEMBER_LIST}
         st.session_state.quota_info = (b+1, h, b, l)
-    
-    if c2.button("🏃 순위 추첨", use_container_width=True):
+
+    # 순위 설정 (랜덤 vs 수동)
+    rank_col1, rank_col2 = st.columns(2)
+    if rank_col1.button("🏃 2-A. 순위 랜덤 추첨", use_container_width=True):
         st.session_state.selection_order = random.sample(MEMBER_LIST, len(MEMBER_LIST))
         st.session_state.current_picker_idx = 0
         st.session_state.undo_triggered = False
+        st.success("랜덤 순위 완료!")
+
+    with st.expander("🏃 2-B. 순위 수동 조정"):
+        manual_order = st.multiselect("순위 순서대로 이름을 선택하세요", MEMBER_LIST, default=st.session_state.selection_order if st.session_state.selection_order else [])
+        if st.button("✅ 수동 순위 적용"):
+            if len(manual_order) == len(MEMBER_LIST):
+                st.session_state.selection_order = manual_order
+                st.session_state.current_picker_idx = 0
+                st.session_state.undo_triggered = False
+                st.success("수동 순위 적용 완료!")
+                st.rerun()
+            else:
+                st.error(f"12명 모두를 순서대로 선택해야 합니다. (현재 {len(manual_order)}명)")
 
     if st.session_state.quota_info:
         b1, h1, b2, l2 = st.session_state.quota_info
-        st.info(f"📍 {b1}회: {', '.join(h1)}\n\n📍 {b2}회: {', '.join(l2)}")
+        st.info(f"📍 **{b1}회**: {', '.join(h1)}\n\n📍 **{b2}회**: {', '.join(l2)}")
 
     st.divider()
     ctrl1, ctrl2 = st.columns(2)
+    
+    # [IndexError 방지 로직 적용]
     if ctrl1.button("↩️ 되돌리기", use_container_width=True, disabled=not st.session_state.history):
-        last = st.session_state.history.pop()
-        st.session_state.update({'slots': last['slots'], 'quotas': last['quotas'], 'current_picker_idx': last['current_picker_idx'], 'pass_log': last['pass_log'], 'undo_triggered': True})
-        st.rerun()
+        if len(st.session_state.history) > 0:
+            last = st.session_state.history.pop()
+            st.session_state.update({'slots': last['slots'], 'quotas': last['quotas'], 'current_picker_idx': last['current_picker_idx'], 'pass_log': last['pass_log'], 'undo_triggered': True})
+            st.rerun()
+        else:
+            st.toast("되돌릴 기록이 없습니다.")
+
     if ctrl2.button("🚫 패스(배분)", use_container_width=True):
         if st.session_state.selection_order: pass_turn(st.session_state.selection_order[st.session_state.current_picker_idx])
 
@@ -164,17 +181,16 @@ with col_info:
             rem_prefs = [p for p in raw_prefs if int(p) < len(st.session_state.slots) and st.session_state.slots[int(p)]['owner'] is None]
             
             is_turn = (idx == st.session_state.current_picker_idx)
+            rank_label = f"{idx + 1}위: {name}"
             abs_tag = '<span class="absent-badge">[부재중]</span>' if name in st.session_state.absentees else ""
             pref_txt = f" | 🌟 남음: {', '.join(rem_prefs)}" if rem_prefs else ""
 
             if is_turn:
-                st.markdown(f'<div class="turn-box"><b>👉 {idx+1}위: {name}{abs_tag} ({q}회){pref_txt}</b></div>', unsafe_allow_html=True)
-                
-                # [수정된 자동 배정 로직]
+                st.markdown(f'<div class="turn-box"><b>👉 {rank_label}{abs_tag} ({q}회){pref_txt}</b></div>', unsafe_allow_html=True)
                 if name in st.session_state.absentees and q > 0:
                     if st.session_state.undo_triggered:
-                        st.info("↩️ 되돌리기로 인해 자동 배정이 일시 정지되었습니다.")
-                        if st.button("다시 자동 배정 진행"):
+                        st.info("↩️ 자동 배정 일시 정지됨")
+                        if st.button("자동 배정 재개"):
                             st.session_state.undo_triggered = False
                             st.rerun()
                     else:
@@ -184,7 +200,7 @@ with col_info:
                             st.session_state.quotas[name] -= 1; find_next_valid_picker(); st.rerun()
                         else: pass_turn(name)
             else:
-                st.markdown(f"• {idx+1}위: {name}{abs_tag} ({q}회){pref_txt}", unsafe_allow_html=True)
+                st.markdown(f"• {rank_label}{abs_tag} ({q}회){pref_txt}", unsafe_allow_html=True)
 
 with col_cal:
     h_cols = st.columns(7); days_kr = ["일", "월", "화", "수", "목", "금", "토"]
@@ -207,7 +223,7 @@ with col_cal:
                         else:
                             if st.button(f"{s['type'][0]}:{s['id']}", key=f"b{s['id']}", use_container_width=True):
                                 save_history()
-                                st.session_state.undo_triggered = False # 수동 클릭 시 플래그 해제
+                                st.session_state.undo_triggered = False
                                 target = st.session_state.admin_selected_member if st.session_state.manual_mode else st.session_state.selection_order[st.session_state.current_picker_idx]
                                 s['owner'] = target; st.session_state.quotas[target] -= 1
                                 if not st.session_state.manual_mode: find_next_valid_picker()
