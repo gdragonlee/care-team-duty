@@ -38,25 +38,35 @@ def save_history():
 def move_to_next_picker():
     """배정이 가능한(횟수가 남은) 다음 순위자로 순번 이동"""
     if not st.session_state.selection_order: return
-    
-    # 현재 인덱스부터 한 바퀴 돌며 남은 횟수가 있는 사람을 찾음
     for _ in range(len(st.session_state.selection_order)):
         st.session_state.current_picker_idx = (st.session_state.current_picker_idx + 1) % len(st.session_state.selection_order)
         curr_name = st.session_state.selection_order[st.session_state.current_picker_idx]
         if st.session_state.quotas.get(curr_name, 0) > 0:
-            return # 다음 사람 찾음
+            return
 
 def pass_turn(name):
-    """현재 순위자의 횟수를 타인에게 배분하고 강제로 순번 넘김"""
+    """현재 순위자의 횟수를 본인을 제외한 '모든 팀원'에게 랜덤 배분"""
     rem = st.session_state.quotas.get(name, 0)
     if rem <= 0: return
+
     save_history()
-    others = [n for n in st.session_state.selection_order if n != name and st.session_state.quotas.get(n, 0) > 0]
+    
+    # [수정 핵심]: 본인만 제외하고, 횟수가 0인 사람을 포함한 전체 팀원(MEMBER_LIST)이 대상
+    others = [m for m in MEMBER_LIST if m != name]
+    
     if others:
-        dist = [random.choice(others) for _ in range(rem)]
-        for t in dist: st.session_state.quotas[t] += 1
-        summary = {x: dist.count(x) for x in set(dist)}
+        dist_log = []
+        for _ in range(rem):
+            target = random.choice(others)
+            st.session_state.quotas[target] += 1
+            dist_log.append(target)
+        
+        # 배분 결과 요약
+        summary = {x: dist_log.count(x) for x in set(dist_log)}
         st.session_state.pass_log = f"🚫 **{name}** 패스 ➔ " + ", ".join([f"**{k}**(+{v}회)" for k, v in summary.items()])
+    else:
+        st.session_state.pass_log = f"⚠️ {name}님 패스 (배분 대상이 없습니다)"
+    
     st.session_state.quotas[name] = 0
     move_to_next_picker()
     st.rerun()
@@ -65,8 +75,7 @@ def pass_turn(name):
 st.set_page_config(page_title="2026 CARE팀 12인 당직 시스템", layout="wide")
 st.markdown("""
     <style>
-    .day-header-box { background-color: #f1f3f5; color: #212529 !important; text-align: center; font-weight: 900; padding: 8px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #dee2e6; }
-    @media (prefers-color-scheme: dark) { .day-header-box { background-color: #343a40; color: #f8f9fa !important; border: 1px solid #495057; } }
+    .day-header-box { background-color: #343a40; color: #ffffff !important; text-align: center; font-weight: 900; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
     .date-tag-normal { background-color: #212529; color: #ffffff !important; padding: 2px 10px; border-radius: 4px; font-weight: 800; display: inline-block; margin-bottom: 5px; }
     .date-tag-holiday { background-color: #fa5252; color: #ffffff !important; padding: 2px 10px; border-radius: 4px; font-weight: 800; display: inline-block; margin-bottom: 5px; }
     div[data-testid="stButton"] button p { color: white !important; font-weight: 700; }
@@ -104,18 +113,18 @@ with st.sidebar:
     st.divider()
     for name in sorted(MEMBER_LIST):
         with st.expander(f"⚙️ {name}"):
-            is_abs = st.checkbox("부재중", key=f"abs_{name}", value=(name in st.session_state.absentees))
+            is_abs = st.checkbox("부재중 체크", key=f"abs_{name}", value=(name in st.session_state.absentees))
             if is_abs: st.session_state.absentees.add(name)
             else: st.session_state.absentees.discard(name)
             st.session_state.absentee_prefs[name] = st.text_input("희망 ID(쉼표)", value=st.session_state.absentee_prefs[name], key=f"p_{name}")
 
 # --- 메인 화면 ---
-st.title(f"📅 2026년 {sel_month}월 당직 배정")
+st.title(f"📅 2026년 {sel_month}월 CARE팀 당직 배정")
 
 col_info, col_cal = st.columns([1, 2.3])
 
 with col_info:
-    st.subheader("🎲 추첨 제어")
+    st.subheader("🎲 추첨 및 제어")
     c1, c2 = st.columns(2)
     if c1.button("🔢 횟수 추첨", use_container_width=True):
         t = len(st.session_state.slots); b, e = divmod(t, 12)
@@ -125,14 +134,13 @@ with col_info:
         st.session_state.quota_info = (b+1, h, b, l)
     
     if c2.button("🏃 순위 추첨", use_container_width=True):
-        # 순위 추첨 시 인덱스를 반드시 0으로 초기화하여 1위부터 시작하게 함
         st.session_state.selection_order = random.sample(MEMBER_LIST, len(MEMBER_LIST))
         st.session_state.current_picker_idx = 0
-        st.success("순위 추첨 완료! 1위부터 시작합니다.")
 
     if st.session_state.quota_info:
         b1, h1, b2, l2 = st.session_state.quota_info
-        st.info(f"✨ {b1}회: {', '.join(h1)}\n\n✨ {b2}회: {', '.join(l2)}")
+        st.info(f"✨ {b1}회: {', '.join(h1)}")
+        st.success(f"✨ {b2}회: {', '.join(l2)}")
 
     st.divider()
     ctrl1, ctrl2 = st.columns(2)
@@ -146,16 +154,12 @@ with col_info:
 
     st.subheader("📋 실시간 순위 리스트")
     if st.session_state.selection_order:
-        # 현재 차례인 사람이 횟수가 없으면 다음 순위로 자동 이동
-        curr_name = st.session_state.selection_order[st.session_state.current_picker_idx]
-        if st.session_state.quotas.get(curr_name, 0) <= 0:
-            move_to_next_picker()
+        move_to_next_picker()
 
         for idx, name in enumerate(st.session_state.selection_order):
             q = st.session_state.quotas.get(name, 0)
-            if q <= 0: continue # 횟수 끝난 사람 제외
+            if q <= 0: continue # 횟수가 없는 사람은 리스트에서 제외
             
-            # 희망 번호 실시간 필터링
             raw_prefs = [x.strip() for x in st.session_state.absentee_prefs.get(name, "").split(',') if x.strip().isdigit()]
             rem_prefs = [p for p in raw_prefs if int(p) < len(st.session_state.slots) and st.session_state.slots[int(p)]['owner'] is None]
             
@@ -166,13 +170,12 @@ with col_info:
 
             if is_turn:
                 st.markdown(f'<div class="turn-box"><b>👉 {rank_label}{abs_tag} ({q}회){pref_txt}</b></div>', unsafe_allow_html=True)
-                # 부재자 자동 배정 로직 (희망 번호 있을 시)
                 if name in st.session_state.absentees and q > 0:
                     if rem_prefs:
                         target_id = int(rem_prefs[0])
                         save_history(); st.session_state.slots[target_id]['owner'] = name
                         st.session_state.quotas[name] -= 1; move_to_next_picker(); st.rerun()
-                    else: pass_turn(name) # 희망 번호 없으면 자동 패스
+                    else: pass_turn(name)
             else:
                 st.markdown(f"• {rank_label}{abs_tag} ({q}회){pref_txt}", unsafe_allow_html=True)
 
@@ -197,19 +200,14 @@ with col_cal:
                         else:
                             if st.button(f"{s['type'][0]}:{s['id']}", key=f"b{s['id']}", use_container_width=True):
                                 save_history()
-                                # 수동 모드면 선택한 사람, 아니면 현재 순번인 사람에게 배정
                                 target = st.session_state.admin_selected_member if st.session_state.manual_mode else st.session_state.selection_order[st.session_state.current_picker_idx]
-                                
                                 s['owner'] = target
                                 st.session_state.quotas[target] -= 1
-                                
-                                # 수동 모드가 아닐 때만 다음 순번으로 이동
                                 if not st.session_state.manual_mode:
                                     move_to_next_picker()
                                 st.rerun()
 
-# --- 엑셀 저장 ---
-# (이전과 동일한 make_excel 함수 및 다운로드 버튼 로직)
+# --- 엑셀 저장 (생략) ---
 def make_excel():
     output = io.BytesIO(); wb = Workbook(); ws = wb.active; ws.title = f"{sel_month}월"
     headers = ["일", "월", "화", "수", "목", "금", "토"]
