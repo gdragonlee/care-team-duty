@@ -1,0 +1,211 @@
+{
+  "timestamp": "2026-02-27T12:16:06.983Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-27T12:09:51.024Z",
+    "activeFeatures": [
+      "care-team-duty",
+      "members",
+      "schedule"
+    ],
+    "primaryFeature": "care-team-duty",
+    "features": {
+      "care-team-duty": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-27T11:23:21.982Z",
+          "lastUpdated": "2026-02-27T12:09:51.024Z"
+        },
+        "lastFile": "/Users/gdragonlee/care-team-duty/components/DutyApp.tsx"
+      },
+      "members": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-27T11:34:53.598Z",
+          "lastUpdated": "2026-02-27T11:34:53.598Z"
+        },
+        "lastFile": "/Users/gdragonlee/care-team-duty/app/api/members/route.ts"
+      },
+      "schedule": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-27T11:35:01.080Z",
+          "lastUpdated": "2026-02-27T11:35:01.080Z"
+        },
+        "lastFile": "/Users/gdragonlee/care-team-duty/app/api/schedule/route.ts"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 1,
+      "level": "Dynamic",
+      "phaseHistory": []
+    },
+    "session": {
+      "startedAt": "2026-02-27T11:16:40.593Z",
+      "onboardingCompleted": false,
+      "lastActivity": "2026-02-27T12:09:51.024Z"
+    },
+    "history": [
+      {
+        "timestamp": "2026-02-27T11:23:21.982Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:34:07.041Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:34:19.457Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:34:26.554Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:34:33.815Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:34:40.005Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:34:45.538Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:34:53.598Z",
+        "feature": "members",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:35:01.080Z",
+        "feature": "schedule",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:36:53.403Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:37:02.256Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:37:08.489Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:56:03.829Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:56:16.508Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T11:56:23.564Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:04:15.214Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:04:28.300Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:04:39.626Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:04:51.996Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:05:24.585Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:06:25.643Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:06:29.620Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:06:37.236Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-27T12:09:51.024Z",
+        "feature": "care-team-duty",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}

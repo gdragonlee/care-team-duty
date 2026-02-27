@@ -1,0 +1,13 @@
+services:
+  care-duty:
+    build: .
+    container_name: care-team-duty
+    ports:
+      - "3000:3000"
+    volumes:
+      # NAS에서 데이터 영속 저장 (경로는 시놀로지 NAS에 맞게 수정)
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+    restart: unless-stopped
